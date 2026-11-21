@@ -1,8 +1,9 @@
-name: Build and test
+name: Build, test and package
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -11,21 +12,66 @@ permissions:
 
 jobs:
   managed:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - run: dotnet test Chimera.slnx --configuration Release --filter "TestCategory!=Native"
-      - run: dotnet pack src/Chimera/Chimera.csproj --configuration Release --no-build --output artifacts
+      - run: dotnet test Chimera.slnx --configuration Release --filter "TestCategory!=Native&TestCategory!=NativeStreaming"
+
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            rid: linux-x64
+            file: libchimera_wasm.so
+          - runner: ubuntu-24.04-arm
+            rid: linux-arm64
+            file: libchimera_wasm.so
+          - runner: macos-15
+            rid: osx-arm64
+            file: libchimera_wasm.dylib
+          - runner: macos-15-intel
+            rid: osx-x64
+            file: libchimera_wasm.dylib
+          - runner: windows-2022
+            rid: win-x64
+            file: chimera_wasm.dll
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: jamesondh/chimera-vocal-synth
+          ref: 7c0f722e6a375f0acae543364565741d58c100c9
+          path: upstream
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build native C ABI
+        run: cargo build --locked --release --manifest-path upstream/Cargo.toml -p chimera-wasm
+      - name: Test native PCM streaming
+        run: dotnet test tests/Chimera.Tests/Chimera.Tests.csproj --configuration Release --filter "TestCategory=NativeStreaming"
+        env:
+          CHIMERA_NATIVE_PATH: ${{ github.workspace }}/upstream/target/release/${{ matrix.file }}
+          CHIMERA_DICTIONARY_PATH: ${{ github.workspace }}/upstream/public/data/cmudict.txt.gz
+      - name: Stage RID-native asset
+        shell: bash
+        run: |
+          mkdir -p "native-runtimes/runtimes/${{ matrix.rid }}/native"
+          cp "upstream/target/release/${{ matrix.file }}" "native-runtimes/runtimes/${{ matrix.rid }}/native/"
       - uses: actions/upload-artifact@v4
         with:
-          name: chimera-nuget
-          path: artifacts/*.nupkg
+          name: chimera-native-${{ matrix.rid }}
+          path: native-runtimes/
+          if-no-files-found: error
 
-  upstream-native-smoke:
-    runs-on: ubuntu-latest
+  upstream-cli:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -41,3 +87,24 @@ jobs:
       - run: dotnet test tests/Chimera.Tests/Chimera.Tests.csproj --configuration Release --filter "TestCategory=Native"
         env:
           CHIMERA_CLI_PATH: ${{ github.workspace }}/upstream/target/release/chimera
+
+  package:
+    needs: [managed, native, upstream-cli]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: chimera-native-*
+          merge-multiple: true
+          path: native-assets
+      - name: Verify and pack cross-platform NuGet
+        run: dotnet pack src/Chimera/Chimera.csproj --configuration Release --output package -p:ChimeraRequireNative=true -p:ChimeraNativeAssetsDir=${{ github.workspace }}/native-assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chimera-nuget
+          path: package/*.nupkg
+          if-no-files-found: error

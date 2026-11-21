@@ -8,9 +8,10 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <PackageId>tryAGI.Chimera</PackageId>
-    <Version>0.1.0-preview.1</Version>
+    <Version>0.2.0-preview.1</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>tryAGI and contributors</Authors>
-    <Description>Offline C# speech and vocal synthesis through the CHIMERA Rust CLI.</Description>
+    <Description>C# offline and native-streaming speech and vocal synthesis using the CHIMERA Rust engine.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>tts;speech;singing;vocal;synthesis;chimera</PackageTags>
@@ -21,5 +22,26 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="/" />
+    <None Include="../../third_party/CHIMERA-LICENSE" Pack="true" PackagePath="licenses/" />
   </ItemGroup>
+  <ItemGroup Condition="'$(ChimeraNativeAssetsDir)' != ''">
+    <None Include="$(ChimeraNativeAssetsDir)/runtimes/**/*"
+          Pack="true" PackagePath="runtimes/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="VerifyChimeraNativeAssets" BeforeTargets="GenerateNuspec"
+          Condition="'$(ChimeraRequireNative)' == 'true'">
+    <Error Condition="'$(ChimeraNativeAssetsDir)' == ''"
+           Text="ChimeraNativeAssetsDir is required for the distributable NuGet package." />
+    <Error Condition="!Exists('$(ChimeraNativeAssetsDir)/runtimes/linux-x64/native/libchimera_wasm.so')"
+           Text="Missing linux-x64 native CHIMERA asset." />
+    <Error Condition="!Exists('$(ChimeraNativeAssetsDir)/runtimes/linux-arm64/native/libchimera_wasm.so')"
+           Text="Missing linux-arm64 native CHIMERA asset." />
+    <Error Condition="!Exists('$(ChimeraNativeAssetsDir)/runtimes/osx-arm64/native/libchimera_wasm.dylib')"
+           Text="Missing osx-arm64 native CHIMERA asset." />
+    <Error Condition="!Exists('$(ChimeraNativeAssetsDir)/runtimes/osx-x64/native/libchimera_wasm.dylib')"
+           Text="Missing osx-x64 native CHIMERA asset." />
+    <Error Condition="!Exists('$(ChimeraNativeAssetsDir)/runtimes/win-x64/native/chimera_wasm.dll')"
+           Text="Missing win-x64 native CHIMERA asset." />
+  </Target>
 </Project>
