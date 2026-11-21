@@ -111,9 +111,18 @@ public sealed class ChimeraClientTests
             ExecutablePath = Path.GetFullPath(executable),
             Timeout = TimeSpan.FromMinutes(3),
         });
-        var audio = await client.SynthesizeTextAsync("Hello from CHIMERA.");
-        Assert.That(audio.WaveBytes.Length, Is.GreaterThan(4400));
-        Assert.That(BinaryPrimitives.ReadInt32LittleEndian(audio.WaveBytes.AsSpan(24, 4)), Is.EqualTo(48000));
+        var speech = await client.SynthesizeTextAsync("Hello from CHIMERA.");
+        Assert.That(speech.WaveBytes.Length, Is.GreaterThan(4400));
+        Assert.That(BinaryPrimitives.ReadInt32LittleEndian(speech.WaveBytes.AsSpan(24, 4)), Is.EqualTo(48000));
+
+        var ipa = await client.SynthesizeIpaAsync("ˈɑpɑ", ChimeraVoice.Female, ChimeraSampleFormat.Float32);
+        Assert.That(ipa.WaveBytes.Length, Is.GreaterThan(4400));
+        Assert.That(BinaryPrimitives.ReadUInt16LittleEndian(ipa.WaveBytes.AsSpan(20, 2)), Is.EqualTo(3));
+
+        var singing = await client.SingNotesAsync("""
+            {"bpm":120,"lyrics":"a","notes":[[60,1]]}
+            """);
+        Assert.That(singing.WaveBytes.Length, Is.GreaterThan(4400));
     }
 
     private sealed class FakeCli : IDisposable

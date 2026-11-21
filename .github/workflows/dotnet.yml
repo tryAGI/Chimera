@@ -40,4 +40,4 @@ jobs:
       - run: cargo build --locked --release --manifest-path upstream/Cargo.toml -p chimera-cli
       - run: dotnet test tests/Chimera.Tests/Chimera.Tests.csproj --configuration Release --filter "TestCategory=Native"
         env:
-          CHIMERA_CLI_PATH: upstream/target/release/chimera
+          CHIMERA_CLI_PATH: ${{ github.workspace }}/upstream/target/release/chimera

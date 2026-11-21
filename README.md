@@ -38,7 +38,7 @@ const string notes = """
 {
   "bpm": 110,
   "lyrics": "hello world",
-  "notes": [[60, 1], [62, 1]]
+  "notes": [[60, 1], [62, 1], [64, 2]]
 }
 """;
 ChimeraAudio singing = await client.SingNotesAsync(notes);
