@@ -123,3 +123,34 @@ jobs:
           user: havendv
           artifact-pattern: chimera-nuget
 
+  publish-github-packages:
+    name: Publish multi-RID NuGet to GitHub Packages
+    needs: package
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: chimera-nuget
+          path: package
+      - name: Push to tryAGI GitHub Packages
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          dotnet nuget add source "https://nuget.pkg.github.com/tryAGI/index.json" \
+            --name tryagi --username "$GITHUB_ACTOR" --password "$GITHUB_TOKEN" \
+            --store-password-in-clear-text
+          for package in package/*.nupkg; do
+            dotnet nuget push "$package" \
+              --source tryagi --api-key "$GITHUB_TOKEN" --skip-duplicate
+          done
+
