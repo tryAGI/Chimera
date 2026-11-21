@@ -59,6 +59,11 @@ jobs:
         env:
           CHIMERA_NATIVE_PATH: ${{ github.workspace }}/upstream/target/release/${{ matrix.file }}
           CHIMERA_DICTIONARY_PATH: ${{ github.workspace }}/upstream/public/data/cmudict.txt.gz
+      - name: Measure time to first native PCM block
+        run: dotnet test tests/Chimera.Tests/Chimera.Tests.csproj --configuration Release --filter "FullyQualifiedName~FirstPcmLatencyBenchmark" --logger "console;verbosity=detailed"
+        env:
+          CHIMERA_NATIVE_PATH: ${{ github.workspace }}/upstream/target/release/${{ matrix.file }}
+          CHIMERA_DICTIONARY_PATH: ${{ github.workspace }}/upstream/public/data/cmudict.txt.gz
       - name: Stage RID-native asset
         shell: bash
         run: |

@@ -63,6 +63,25 @@ public sealed class ChimeraStreamingTests
     }
 
     [Test]
+    public async Task FirstPcmLatencyBenchmark()
+    {
+        var client = NewClient();
+        var samplesMs = new List<double>(capacity: 5);
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            await using var stream = client.StreamIpaAsync("ˈɑpɑ").GetAsyncEnumerator();
+            Assert.That(await stream.MoveNextAsync(), Is.True);
+            samplesMs.Add(stream.Current.ElapsedSinceRequest.TotalMilliseconds);
+        }
+
+        samplesMs.Sort();
+        TestContext.Progress.WriteLine(
+            $"CHIMERA PCM time-to-first-block: p50={samplesMs[2]:F2} ms " +
+            $"p95≈{samplesMs[^1]:F2} ms (5 runs; native IPA; includes engine creation and planning)");
+        Assert.That(samplesMs.All(value => value >= 0 && double.IsFinite(value)), Is.True);
+    }
+
+    [Test]
     public async Task CancellationStopsAStreamWithoutLeakingItsNativeHandle()
     {
         var client = NewClient();
