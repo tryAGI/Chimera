@@ -108,3 +108,18 @@ jobs:
           name: chimera-nuget
           path: package/*.nupkg
           if-no-files-found: error
+
+  publish-nuget:
+    name: Publish signed preview to NuGet.org
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: tryAGI/workflows/.github/actions/nuget-publish@main
+        with:
+          user: havendv
+          artifact-pattern: chimera-nuget
+
