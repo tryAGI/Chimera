@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Misc/">
+    <File Path="README.md" />
+    <File Path="LICENSE" />
+    <File Path=".gitignore" />
+    <File Path=".github/workflows/dotnet.yml" />
+  </Folder>
+  <Project Path="src/Chimera/Chimera.csproj" />
+  <Project Path="tests/Chimera.Tests/Chimera.Tests.csproj" />
+</Solution>

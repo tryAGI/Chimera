@@ -1,0 +1,43 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  managed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test Chimera.slnx --configuration Release --filter "TestCategory!=Native"
+      - run: dotnet pack src/Chimera/Chimera.csproj --configuration Release --no-build --output artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chimera-nuget
+          path: artifacts/*.nupkg
+
+  upstream-native-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: jamesondh/chimera-vocal-synth
+          ref: 7c0f722e6a375f0acae543364565741d58c100c9
+          path: upstream
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --locked --release --manifest-path upstream/Cargo.toml -p chimera-cli
+      - run: dotnet test tests/Chimera.Tests/Chimera.Tests.csproj --configuration Release --filter "TestCategory=Native"
+        env:
+          CHIMERA_CLI_PATH: upstream/target/release/chimera
