@@ -45,7 +45,13 @@ await foreach (var chunk in synth.StreamNotesAsync(notes))
 
 The first emitted block's `ElapsedSinceRequest` is the measured **time to first generated PCM block** (not first audible sample or time to playback on the device). Each enumeration allocates its own native engine and frees it on completion or cancellation. The upstream engine's C ABI layout is verified at runtime; the SDK rejects incompatible layouts.
 
-**English dictionary:** `StreamTextAsync` requires a local CMU dictionary (text or gzip). The package does not redistribute dictionary data. IPA rendering and singing from explicit `syllables` work without this dictionary. The English text frontend is not suitable for arbitrary Russian prose; use IPA or a language-appropriate phonemizer.
+**Russian:** For Cyrillic speech, use `StreamRussianTextAsync("Приве́т, мир!")`;
+for sung lyrics supply `"lang":"ru"` and Cyrillic `lyrics` in the notes JSON.
+Both use the native Russian frontend without the English dictionary. Explicitly
+mark ambiguous stress with U+0301 (combining acute). This first speech path uses
+the Russian singing frontend, so unstressed vowel reduction is approximate.
+
+**English dictionary:** `StreamTextAsync` requires a local CMU dictionary (text or gzip). The package does not redistribute dictionary data. IPA rendering and singing from explicit `syllables` work without this dictionary. Use `StreamRussianTextAsync` for Russian prose, not the English G2P frontend.
 
 ## Native binaries and NuGet
 

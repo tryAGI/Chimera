@@ -93,6 +93,24 @@ public sealed class ChimeraStreamingClient
         return StreamAsync(() => PlanText(text, voice), voice, cancellationToken);
     }
 
+    /// <summary>
+    /// Stream Russian Cyrillic text using CHIMERA's built-in Russian phonetic frontend.
+    /// Does not require an English dictionary. Mark ambiguous stress with combining acute.
+    /// </summary>
+    public IAsyncEnumerable<ChimeraPcmChunk> StreamRussianTextAsync(
+        string text,
+        ChimeraVoice voice = ChimeraVoice.Male,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        if (!ContainsRussianLetters(text))
+            throw new ArgumentException("Russian synthesis requires Cyrillic text.", nameof(text));
+        return StreamAsync(() => PlanRussianText(text, voice), voice, cancellationToken);
+    }
+
+    private static bool ContainsRussianLetters(string text) =>
+        text.Any(static c => c is >= 'а' and <= 'я' or >= 'А' and <= 'Я' or 'ё' or 'Ё');
+
     /// <summary>Stream sung notes from the CHIMERA melody JSON format.</summary>
     public IAsyncEnumerable<ChimeraPcmChunk> StreamNotesAsync(
         string notesJson,
@@ -185,6 +203,51 @@ public sealed class ChimeraStreamingClient
         }));
     }
 
+    private NativePlan PlanRussianText(string text, ChimeraVoice voice)
+    {
+        // CHIMERA's native syllabifier routes Cyrillic through its Russian frontend,
+        // preserving stress, consonant voicing and word boundaries without CMU data.
+        var syllables = Call(new JsonObject
+        {
+            ["fn"] = "lyricsToSyllables",
+            ["text"] = text,
+        }) as JsonArray ?? throw new ChimeraException("CHIMERA returned invalid Russian syllables.");
+
+        var segments = new JsonArray();
+        foreach (var syllableNode in syllables)
+        {
+            if (syllableNode is not JsonObject syllable ||
+                syllable["onset"] is not JsonArray onset ||
+                syllable["nucleus"] is not JsonObject nucleus ||
+                syllable["coda"] is not JsonArray coda)
+            {
+                throw new ChimeraException("CHIMERA returned an invalid Russian syllable.");
+            }
+
+            foreach (var segment in onset)
+                segments.Add(segment!.DeepClone());
+            segments.Add(nucleus.DeepClone());
+            foreach (var segment in coda)
+                segments.Add(segment!.DeepClone());
+
+            if (syllable["wordEnd"]?.GetValue<bool>() == true &&
+                segments.LastOrDefault() is JsonObject final)
+            {
+                final["wordEnd"] = true;
+            }
+        }
+
+        if (segments.Count == 0)
+            throw new ChimeraException("CHIMERA did not recognize any Russian phonemes.");
+
+        return ParsePlan(Call(new JsonObject
+        {
+            ["fn"] = "planUtterance",
+            ["segments"] = segments,
+            ["options"] = PlanOptions(voice, 0.05),
+        }));
+    }
+
     private NativePlan PlanNotes(string json, ChimeraVoice voice)
     {
         var input = JsonNode.Parse(json) as JsonObject
@@ -204,13 +267,24 @@ public sealed class ChimeraStreamingClient
         }
         else
         {
-            EnsureDictionaryLoaded();
+            var lyrics = input["lyrics"]?.GetValue<string>()
+                ?? throw new ArgumentException("Notes require lyrics or syllables.", nameof(json));
+            var language = input["lang"]?.GetValue<string>()?.ToLowerInvariant() ?? "en";
+            if (language is not ("en" or "ru" or "tr"))
+                throw new ArgumentException("Lyrics language must be en, ru, or tr.", nameof(json));
+            if (language == "ru" && !ContainsRussianLetters(lyrics))
+                throw new ArgumentException("Russian lyrics require Cyrillic text.", nameof(json));
+
+            // The native frontend auto-detects Cyrillic; lang selects the
+            // Latin-script tokenizer only (English or Turkish).
+            if (language == "en" && !ContainsRussianLetters(lyrics))
+                EnsureDictionaryLoaded();
+
             syllables = Call(new JsonObject
             {
                 ["fn"] = "lyricsToSyllables",
-                ["text"] = input["lyrics"]?.GetValue<string>()
-                    ?? throw new ArgumentException("Notes require lyrics or syllables.", nameof(json)),
-                ["lang"] = input["lang"]?.GetValue<string>() ?? "en",
+                ["text"] = lyrics,
+                ["lang"] = language == "tr" ? "tr" : "en",
             }) as JsonArray ?? throw new ChimeraException("CHIMERA produced invalid sung syllables.");
         }
 

@@ -8,7 +8,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <PackageId>tryAGI.Chimera</PackageId>
-    <Version>0.2.0-preview.1</Version>
+    <Version>0.2.0-preview.2</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>tryAGI and contributors</Authors>
     <Description>C# offline and native-streaming speech and vocal synthesis using the CHIMERA Rust engine.</Description>

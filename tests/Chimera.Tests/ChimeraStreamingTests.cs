@@ -63,6 +63,27 @@ public sealed class ChimeraStreamingTests
     }
 
     [Test]
+    public async Task RussianSpeechStreamsThroughBuiltInPhoneticsWithoutEnglishDictionary()
+    {
+        var client = NewClient();
+        var chunks = await CollectAsync(client.StreamRussianTextAsync("Приве́т, мир!", ChimeraVoice.Female));
+        Assert.That(chunks.Count, Is.GreaterThan(2));
+        Assert.That(chunks.Any(c => c.Pcm16.Any(b => b != 0)), Is.True);
+        Assert.That(chunks[0].SampleRate, Is.EqualTo(48_000));
+    }
+
+    [Test]
+    public async Task RussianLyricsCanSingWithoutEnglishDictionary()
+    {
+        var client = NewClient();
+        var chunks = await CollectAsync(client.StreamNotesAsync("""
+            {"bpm":120,"lang":"ru","lyrics":"Да","notes":[[60,1]]}
+            """));
+        Assert.That(chunks.Count, Is.GreaterThan(2));
+        Assert.That(chunks.Any(c => c.Pcm16.Any(b => b != 0)), Is.True);
+    }
+
+    [Test]
     public async Task FirstPcmLatencyBenchmark()
     {
         var client = NewClient();
